@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fake News Detector</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 400px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #333;
+    }
+
+    .header {
+      background: #1976d2;
+      color: white;
+      padding: 16px;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .header h1 {
+      font-size: 18px;
+      margin-bottom: 4px;
+    }
+
+    .header p {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+
+    .content {
+      padding: 16px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      border-bottom: 2px solid #eee;
+    }
+
+    .tab {
+      padding: 8px 12px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 14px;
+      border-bottom: 3px solid transparent;
+      transition: all 0.3s;
+    }
+
+    .tab.active {
+      border-bottom-color: #1976d2;
+      color: #1976d2;
+      font-weight: bold;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: monospace;
+      resize: vertical;
+      min-height: 120px;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      transition: all 0.3s;
+    }
+
+    .btn-primary {
+      background: #1976d2;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #1565c0;
+    }
+
+    .btn-secondary {
+      background: #f5f5f5;
+      color: #333;
+      border: 1px solid #ddd;
+    }
+
+    .btn-secondary:hover {
+      background: #efefef;
+    }
+
+    .results {
+      background: white;
+      padding: 12px;
+      border-radius: 4px;
+      margin-top: 12px;
+    }
+
+    .result-badge {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .result-badge.fake {
+      background: #ffebee;
+      color: #f44336;
+    }
+
+    .result-badge.real {
+      background: #e8f5e9;
+      color: #4caf50;
+    }
+
+    .confidence-bar {
+      width: 100%;
+      height: 6px;
+      background: #f0f0f0;
+      border-radius: 3px;
+      overflow: hidden;
+      margin: 8px 0;
+    }
+
+    .confidence-fill {
+      height: 100%;
+      transition: width 0.3s;
+    }
+
+    .loading {
+      text-align: center;
+      color: #999;
+      padding: 20px;
+    }
+
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #1976d2;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 10px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .error {
+      color: #f44336;
+      padding: 10px;
+      background: #ffebee;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    .settings-item {
+      margin-bottom: 12px;
+      padding: 12px;
+      background: white;
+      border-radius: 4px;
+    }
+
+    .settings-item label {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    input[type="checkbox"] {
+      margin-right: 8px;
+      cursor: pointer;
+    }
+
+    .footer {
+      text-align: center;
+      font-size: 11px;
+      color: #999;
+      padding: 12px;
+      border-top: 1px solid #eee;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📰 Fake News Detector</h1>
+    <p>Verify news authenticity instantly</p>
+  </div>
+
+  <div class="content">
+    <div class="tabs">
+      <button class="tab active" data-tab="analyze">Analyze</button>
+      <button class="tab" data-tab="results">Results</button>
+      <button class="tab" data-tab="settings">Settings</button>
+    </div>
+
+    <!-- Analyze Tab -->
+    <div class="tab-content active" id="analyze">
+      <textarea id="newsText" placeholder="Paste news article or headline here..."></textarea>
+      <button class="btn-primary" id="analyzeBtn">🔍 Analyze Text</button>
+      <button class="btn-secondary" id="analyzePageBtn">📄 Analyze Current Page</button>
+      <button class="btn-secondary" id="analyzeUrlBtn">🔗 Analyze URL</button>
+    </div>
+
+    <!-- Results Tab -->
+    <div class="tab-content" id="results">
+      <div id="resultContainer"></div>
+    </div>
+
+    <!-- Settings Tab -->
+    <div class="tab-content" id="settings">
+      <div class="settings-item">
+        <label>
+          <input type="checkbox" id="autoAnalyze" checked>
+          Auto-analyze page when opened
+        </label>
+      </div>
+      <div class="settings-item">
+        <label>
+          <input type="checkbox" id="showNotifications" checked>
+          Show notifications for fake news
+        </label>
+      </div>
+      <div class="settings-item">
+        <label>
+          <input type="checkbox" id="highlightSuspicious" checked>
+          Highlight suspicious phrases
+        </label>
+      </div>
+      <button class="btn-primary" id="saveSettings">💾 Save Settings</button>
+      <div style="margin-top: 12px; padding: 12px; background: white; border-radius: 4px;">
+        <strong>Version:</strong> 1.0.0<br>
+        <strong>API Server:</strong> <span id="apiServer">http://localhost:5000</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Made with ❤️ for information authenticity
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
