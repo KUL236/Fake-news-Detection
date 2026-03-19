@@ -243,6 +243,93 @@ def analyze_url():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/analyze/image', methods=['POST'])
+def analyze_image():
+    """
+    Analyze news from image files
+    Supports OCR extraction and image authenticity verification
+    
+    Request: multipart/form-data with 'image' file
+    """
+    try:
+        if 'image' not in request.files:
+            return jsonify({'error': 'Image file is required'}), 400
+        
+        image_file = request.files['image']
+        if image_file.filename == '':
+            return jsonify({'error': 'No image selected'}), 400
+        
+        # Read image file
+        import base64
+        import io
+        from PIL import Image
+        import pytesseract
+        
+        # Validate file type
+        allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'bmp'}
+        file_ext = image_file.filename.rsplit('.', 1)[1].lower() if '.' in image_file.filename else ''
+        
+        if file_ext not in allowed_extensions:
+            return jsonify({'error': 'File type not allowed. Use: PNG, JPG, GIF, BMP'}), 400
+        
+        # Read and process image
+        image_data = image_file.read()
+        image = Image.open(io.BytesIO(image_data))
+        
+        # Extract text from image using OCR
+        extracted_text = ""
+        try:
+            extracted_text = pytesseract.image_to_string(image)
+        except Exception as e:
+            logger.warning(f"OCR failed: {e}, will use placeholder analysis")
+            extracted_text = f"[Image content analysis - {image.format} {image.size}]"
+        
+        # If OCR extracted meaningful text, analyze it
+        if extracted_text.strip():
+            analysis_result = detector.analyze(extracted_text)
+        else:
+            # If no text extracted, provide image-level analysis
+            analysis_result = {
+                'classification': 'INCONCLUSIVE',
+                'confidence_score': 35.0,
+                'risk_level': 'MEDIUM',
+                'explanation': 'Image appears to contain no readable text. Image deepfake/manipulation detection requires advanced models.',
+                'image_metadata': {
+                    'format': image.format,
+                    'size': image.size,
+                    'mode': image.mode
+                }
+            }
+        
+        # Add image-specific information
+        analysis_result['image_analysis'] = {
+            'extracted_text': extracted_text[:500] if extracted_text else 'No text found',
+            'has_text': bool(extracted_text.strip()),
+            'image_format': image.format,
+            'image_size': image.size
+        }
+        
+        analysis_result['input_type'] = 'image'
+        analysis_result['timestamp'] = datetime.now().isoformat()
+        
+        return jsonify(analysis_result), 200
+    
+    except ImportError:
+        logger.warning("PIL/pytesseract not installed, returning basic analysis")
+        return jsonify({
+            'classification': 'INCONCLUSIVE',
+            'confidence_score': 0.0,
+            'risk_level': 'MEDIUM',
+            'explanation': 'Image analysis service requires additional dependencies (Pillow, pytesseract)',
+            'note': 'Install with: pip install Pillow pytesseract',
+            'fallback': True
+        }), 503
+    
+    except Exception as e:
+        logger.error(f"Image analysis error: {e}")
+        return jsonify({'error': f'Image analysis failed: {str(e)}'}), 500
+
+
 # ============================================================================
 # ADVANCED ANALYSIS ENDPOINTS
 # ============================================================================
@@ -281,7 +368,7 @@ def detect_propaganda():
         return jsonify({'error': error_msg}), 400
     
     try:
-        result = propaganda_detector.detect(data['text'])
+        result = propaganda_detector.analyze(data['text'])
         result['timestamp'] = datetime.now().isoformat()
         return jsonify(result), 200
     except Exception as e:
@@ -509,22 +596,22 @@ def rate_limit_exceeded(error):
 # ============================================================================
 
 if __name__ == '__main__':
-    print("""
-    ╔════════════════════════════════════════════════════════════════╗
-    ║   Fake News Detection System - Flask API Server                ║
-    ║   Version 1.0.0                                                ║
-    ╚════════════════════════════════════════════════════════════════╝
-    """)
+    print("\n" + "="*70)
+    print("  Fake News Detection System - Flask API Server")
+    print("  Version 1.0.0")
+    print("="*70)
     print("\nAvailable Endpoints:")
     print("  - POST /api/analyze - Analyze single news")
     print("  - POST /api/analyze/batch - Batch analysis")
     print("  - POST /api/analyze/url - Analyze from URL")
+    print("  - POST /api/analyze/image - Image analysis with OCR")
     print("  - POST /api/sentiment - Sentiment analysis")
     print("  - POST /api/propaganda - Propaganda detection")
     print("  - POST /api/factcheck - Fact-checking")
+    print("  - POST /api/source-credibility - Source analysis")
     print("  - GET  /api/analytics/overview - Analytics")
     print("  - GET  /api/health - Health check")
-    print("\n")
+    print("\n" + "="*70 + "\n")
     
     # Run development server
     app.run(

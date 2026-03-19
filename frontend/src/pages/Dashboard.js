@@ -7,9 +7,14 @@ import {
   Box,
   Typography,
   Button,
-  Alert
+  LinearProgress,
+  Chip,
+  Stack,
+  Paper
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import './Dashboard.css';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -17,88 +22,118 @@ export default function Dashboard() {
   const features = [
     {
       icon: '🔍',
-      title: 'News Analyzer',
-      description: 'Detect fake news with AI-powered analysis and confidence scores',
+      title: 'Smart Analyzer',
+      description: 'Detect fake news with advanced AI-powered analysis',
+      gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
       action: () => navigate('/analyzer')
     },
     {
       icon: '📊',
-      title: 'Analytics',
-      description: 'View trending fake news topics and statistics in real-time',
+      title: 'Live Analytics',
+      description: 'Track trending topics and statistics in real-time',
+      gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
       action: () => navigate('/analytics')
     },
     {
       icon: '⚙️',
       title: 'Settings',
-      description: 'Configure models, language, and detection preferences',
+      description: 'Configure models, language, and preferences',
+      gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
       action: () => navigate('/settings')
     },
     {
       icon: 'ℹ️',
       title: 'About',
-      description: 'Learn about the system, models, and how it works',
+      description: 'Learn about the system and its capabilities',
+      gradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
       action: () => navigate('/about')
     }
   ];
 
-  const capabilities = [
-    { icon: '✅', label: 'ML Models', value: '4 Models' },
-    { icon: '🎯', label: 'Accuracy', value: '94.2%' },
-    { icon: '⚡', label: 'Speed', value: '<100ms' },
-    { icon: '🌍', label: 'Languages', value: '2+' }
+  const stats = [
+    { icon: '✅', label: 'ML Models', value: '4', color: '#10b981' },
+    { icon: '🎯', label: 'Accuracy', value: '94%', color: '#3b82f6' },
+    { icon: '⚡', label: 'Speed', value: '<100ms', color: '#f59e0b' },
+    { icon: '🌍', label: 'Languages', value: '5+', color: '#8b5cf6' }
   ];
 
   return (
-    <Container maxWidth="lg">
-      {/* Header */}
-      <Box sx={{ textAlign: 'center', mb: 6, mt: 2 }}>
-        <Typography variant="h2" sx={{ fontWeight: 'bold', mb: 2 }}>
-          📰 Fake News Detection System
+    <Container maxWidth="xl">
+      {/* Hero Section */}
+      <Box
+        sx={{
+          mb: 6,
+          mt: 2,
+          textAlign: 'center',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          borderRadius: '20px',
+          p: { xs: 3, md: 5 },
+          color: 'white',
+          boxShadow: '0 20px 60px rgba(102, 126, 234, 0.2)'
+        }}
+      >
+        <Typography variant="h2" sx={{ fontWeight: 700, mb: 2 }}>
+          🔍 Welcome to FakeNews Detector
         </Typography>
-        <Typography variant="h6" color="textSecondary" sx={{ mb: 3 }}>
-          Advanced AI-powered detection of misinformation and fake news using machine learning
+        <Typography variant="h6" sx={{ opacity: 0.95, maxWidth: '600px', mx: 'auto', mb: 3 }}>
+          Advanced AI-powered system to detect misinformation and fake news in real-time
         </Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          size="large"
-          onClick={() => navigate('/analyzer')}
-          sx={{ px: 4, py: 1.5 }}
-        >
-          🚀 Start Analyzing
-        </Button>
+        <Stack direction={{ xs: 'column', sm: 'row' }} gap={2} justifyContent="center">
+          <Button
+            variant="contained"
+            size="large"
+            sx={{
+              backgroundColor: 'white',
+              color: '#667eea',
+              fontWeight: 600,
+              px: 3,
+              '&:hover': {
+                backgroundColor: '#f8f9fa'
+              }
+            }}
+            onClick={() => navigate('/analyzer')}
+            endIcon={<ArrowForwardIcon />}
+          >
+            Start Analysis
+          </Button>
+          <Button
+            variant="outlined"
+            size="large"
+            sx={{
+              borderColor: 'white',
+              color: 'white',
+              fontWeight: 600,
+              px: 3,
+              '&:hover': {
+                backgroundColor: 'rgba(255,255,255,0.1)',
+                borderColor: 'white'
+              }
+            }}
+            onClick={() => navigate('/about')}
+          >
+            Learn More
+          </Button>
+        </Stack>
       </Box>
 
-      {/* Alert */}
-      <Alert severity="info" sx={{ mb: 4 }}>
-        💡 **Tip**: Paste a news article or headline to get an instant analysis with detailed explanations
-      </Alert>
-
-      {/* Features Grid */}
-      <Grid container spacing={3} sx={{ mb: 6 }}>
-        {features.map((feature, idx) => (
+      {/* Quick Stats */}
+      <Grid container spacing={2} sx={{ mb: 6 }}>
+        {stats.map((stat, idx) => (
           <Grid item xs={12} sm={6} md={3} key={idx}>
-            <Card
-              sx={{
-                height: '100%',
-                cursor: 'pointer',
-                transition: 'all 0.3s',
-                '&:hover': {
-                  transform: 'translateY(-4px)',
-                  boxShadow: 4
-                }
-              }}
-              onClick={feature.action}
-            >
+            <Card sx={{
+              background: `linear-gradient(135deg, ${stat.color}15 0%, ${stat.color}30 100%)`,
+              borderLeft: `4px solid ${stat.color}`,
+              borderRadius: '12px'
+            }}>
               <CardContent sx={{ textAlign: 'center' }}>
-                <Typography variant="h2" sx={{ mb: 1 }}>
-                  {feature.icon}
+                <Typography variant="h4" sx={{ fontSize: '2rem', mb: 0.5 }}>
+                  {stat.icon}
                 </Typography>
-                <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
-                  {feature.title}
+                <Typography variant="h4" sx={{ fontWeight: 700, color: stat.color, mb: 0.5 }}>
+                  {stat.value}
                 </Typography>
                 <Typography variant="body2" color="textSecondary">
-                  {feature.description}
+                  {stat.label}
                 </Typography>
               </CardContent>
             </Card>
@@ -106,121 +141,117 @@ export default function Dashboard() {
         ))}
       </Grid>
 
-      {/* Capabilities */}
-      <Box sx={{ mb: 6 }}>
-        <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 3, textAlign: 'center' }}>
-          🎯 System Capabilities
-        </Typography>
-        <Grid container spacing={2}>
-          {capabilities.map((cap, idx) => (
-            <Grid item xs={12} sm={6} md={3} key={idx}>
-              <Card sx={{ textAlign: 'center', bgcolor: '#f9f9f9' }}>
-                <CardContent>
-                  <Typography variant="h4" sx={{ mb: 1 }}>
-                    {cap.icon}
-                  </Typography>
-                  <Typography variant="subtitle2" color="textSecondary">
-                    {cap.label}
-                  </Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#1976d2' }}>
-                    {cap.value}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      </Box>
+      {/* Feature Cards */}
+      <Typography variant="h4" sx={{ fontWeight: 700, mb: 3, textAlign: 'center' }}>
+        Key Features
+      </Typography>
+      <Grid container spacing={3} sx={{ mb: 6 }}>
+        {features.map((feature, idx) => (
+          <Grid item xs={12} sm={6} md={6} lg={3} key={idx}>
+            <Card
+              sx={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  transform: 'translateY(-8px)',
+                  boxShadow: '0 30px 60px rgba(0,0,0,0.15)'
+                }
+              }}
+            >
+              <Box
+                sx={{
+                  height: '120px',
+                  background: feature.gradient,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '3rem'
+                }}
+              >
+                {feature.icon}
+              </Box>
+              <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                  {feature.title}
+                </Typography>
+                <Typography variant="body2" color="textSecondary" sx={{ mb: 2, flex: 1 }}>
+                  {feature.description}
+                </Typography>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={feature.action}
+                  sx={{ textTransform: 'none', fontWeight: 600 }}
+                >
+                  Explore
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
 
       {/* How It Works */}
-      <Box sx={{ mb: 6, p: 3, bgcolor: '#f5f5f5', borderRadius: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
-          🔧 How It Works
+      <Paper sx={{ p: { xs: 2, md: 4 }, mb: 4, borderRadius: '16px', background: '#f8fafc' }}>
+        <Typography variant="h5" sx={{ fontWeight: 700, mb: 3, textAlign: 'center' }}>
+          🚀 How It Works
         </Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
-            <Typography variant="body2" paragraph>
-              <strong>1. Text Input:</strong> Upload news article, headline, or paste text
-            </Typography>
-            <Typography variant="body2" paragraph>
-              <strong>2. Analysis:</strong> Multiple ML models analyze the content
-            </Typography>
-            <Typography variant="body2" paragraph>
-              <strong>3. Scoring:</strong> Get confidence score (0-100% fake probability)
-            </Typography>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Typography variant="body2" paragraph>
-              <strong>4. Explanation:</strong> AI provides detailed reasoning
-            </Typography>
-            <Typography variant="body2" paragraph>
-              <strong>5. Verification:</strong> Integration with fact-checking sources
-            </Typography>
-            <Typography variant="body2" paragraph>
-              <strong>6. Action:</strong> Get recommendations for sharing safely
-            </Typography>
-          </Grid>
-        </Grid>
-      </Box>
-
-      {/* Analysis Features */}
-      <Box sx={{ mb: 6 }}>
-        <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 3, textAlign: 'center' }}>
-          ✨ Advanced Analysis Features
-        </Typography>
-        <Grid container spacing={2}>
+        <Grid container spacing={3}>
           {[
-            { icon: '😊', title: 'Sentiment Analysis', desc: 'Emotional tone detection' },
-            { icon: '🎭', title: 'Propaganda Detection', desc: 'Identify manipulation tactics' },
-            { icon: '🔗', title: 'Source Analysis', desc: 'Domain credibility check' },
-            { icon: '✓', title: 'Fact-Checking', desc: 'Integration with databases' },
-            { icon: '🚩', title: 'Suspicious Phrases', desc: 'Highlight red flags' },
-            { icon: '📋', title: 'Recommendations', desc: 'Actionable guidance' }
-          ].map((feature, idx) => (
-            <Grid item xs={12} sm={6} md={4} key={idx}>
-              <Card sx={{ border: '1px solid #e0e0e0' }}>
-                <CardContent>
-                  <Typography variant="h4" sx={{ mb: 1 }}>
-                    {feature.icon}
-                  </Typography>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                    {feature.title}
-                  </Typography>
-                  <Typography variant="caption" color="textSecondary">
-                    {feature.desc}
-                  </Typography>
-                </CardContent>
-              </Card>
+            { num: '1', title: 'Submit Content', desc: 'Paste text or URL to analyze' },
+            { num: '2', title: 'AI Analysis', desc: 'Multiple ML models evaluate' },
+            { num: '3', title: 'Get Results', desc: 'Instant fake news detection' }
+          ].map((step, idx) => (
+            <Grid item xs={12} md={4} key={idx}>
+              <Box sx={{ textAlign: 'center' }}>
+                <Box
+                  sx={{
+                    width: 60,
+                    height: 60,
+                    margin: '0 auto 16px',
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontWeight: 700,
+                    fontSize: '1.5rem'
+                  }}
+                >
+                  {step.num}
+                </Box>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                  {step.title}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  {step.desc}
+                </Typography>
+              </Box>
             </Grid>
           ))}
         </Grid>
-      </Box>
+      </Paper>
 
-      {/* Get Started */}
-      <Box sx={{ textAlign: 'center', py: 4, bgcolor: '#e3f2fd', borderRadius: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
-          Ready to Check News?
+      {/* Capabilities */}
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Typography variant="h5" sx={{ fontWeight: 700, mb: 3 }}>
+          💪 Powerful Capabilities
         </Typography>
-        <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
-          Click below to start analyzing news articles and detect fake content
-        </Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          size="large"
-          onClick={() => navigate('/analyzer')}
-          sx={{ mr: 1 }}
-        >
-          📝 Analyze News
-        </Button>
-        <Button
-          variant="outlined"
-          color="primary"
-          size="large"
-          onClick={() => navigate('/analytics')}
-        >
-          📊 View Analytics
-        </Button>
+        <Grid container spacing={2} justifyContent="center">
+          {['Sentiment Analysis', 'Propaganda Detection', 'Source Credibility', 'Fact Checking', 'Multi-Language', 'Real-time Processing'].map((cap, idx) => (
+            <Grid item key={idx}>
+              <Chip
+                label={cap}
+                color="primary"
+                sx={{ height: '32px', fontSize: '0.9rem', fontWeight: 600 }}
+              />
+            </Grid>
+          ))}
+        </Grid>
       </Box>
     </Container>
   );

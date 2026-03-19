@@ -1,266 +1,382 @@
 """
 Source Credibility Analyzer Module
-Analyzes news source reputation and trustworthiness
+Analyzes the credibility and reputation of news sources
+Checks domain reputation, publication history, author credibility, etc.
 """
 
-from typing import Dict, Any
+from typing import Dict, List, Any
 from urllib.parse import urlparse
 import requests
+import logging
 from datetime import datetime
+import json
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class SourceCredibilityAnalyzer:
-    """Analyze credibility of news sources"""
+    """
+    Analyzes source credibility based on multiple factors
+    """
     
     def __init__(self):
         """Initialize source credibility analyzer"""
-        self.trusted_domains = self._load_trusted_domains()
-        self.known_fake_sources = self._load_fake_sources()
-        self.domain_ratings = {}
-    
-    def _load_trusted_domains(self) -> Dict[str, int]:
-        """Load trusted news source domains with credibility ratings (0-100)"""
-        return {
-            # Major international news agencies
-            'reuters.com': 95,
-            'apnews.com': 94,
-            'bbc.com': 93,
-            'theguardian.com': 92,
-            'nytimes.com': 91,
-            'wsj.com': 90,
-            'ft.com': 90,
-            'bloomberg.com': 89,
-            'cnn.com': 85,
-            'bbc.co.uk': 93,
-            'abc.net.au': 90,
-            'dw.com': 88,
-            'france24.com': 87,
-            
-            # News aggregators
-            'google.com/news': 85,
-            'news.ycombinator.com': 80,
-            
-            # Regional trusted sources
-            'times.com': 88,
-            'telegraph.co.uk': 86,
-            'independent.co.uk': 85,
-            'theverge.com': 82
+        
+        # Trusted news sources (examples)
+        self.trusted_sources = {
+            'tier1': [  # Major international news agencies
+                'bbc.com', 'reuters.com', 'apnews.com', 'theguardian.com',
+                'nytimes.com', 'bbc.co.uk', 'dw.com', 'ft.com'
+            ],
+            'tier2': [  # Major regional/national outlets
+                'cnn.com', 'washingtonpost.com', 'theverge.com',
+                'economist.com', 'wsj.com', 'bloomberg.com',
+                'huffpost.com', 'politico.com'
+            ]
         }
-    
-    def _load_fake_sources(self) -> Dict[str, int]:
-        """Load known fake news sources with warning severity (0-100)"""
-        return {
-            'infowars.com': 95,
-            'naturalnews.com': 90,
-            'worldtruth.tv': 85,
-            'beforeitsnews.com': 85,
-            'yournewswire.com': 80,
-            'newspunch.com': 80
-        }
-    
-    def analyze(self, url: str) -> Dict[str, Any]:
-        """
-        Analyze source credibility
         
-        Args:
-            url: URL of news source
-            
-        Returns:
-            Dictionary with credibility analysis
-        """
-        parsed_url = urlparse(url)
-        domain = parsed_url.netloc.replace('www.', '')
-        
-        # Check if known fake source
-        if domain in self.known_fake_sources:
-            severity = self.known_fake_sources[domain]
-            return self._create_response(
-                url=url,
-                domain=domain,
-                credibility_score=max(0, 30 - severity/10),
-                is_trusted=False,
-                status='untrustworthy',
-                reason='Known fake news source'
-            )
-        
-        # Check if trusted source
-        if domain in self.trusted_domains:
-            rating = self.trusted_domains[domain]
-            return self._create_response(
-                url=url,
-                domain=domain,
-                credibility_score=rating,
-                is_trusted=True,
-                status='trusted',
-                reason='Established, reputable news source'
-            )
-        
-        # Analyze unknown domain
-        return self._analyze_unknown_domain(url, domain)
-    
-    def _analyze_unknown_domain(self, url: str, domain: str) -> Dict[str, Any]:
-        """Analyze credibility of unknown domain"""
-        score = 50  # Start with neutral score
-        
-        # Domain age (check if domain looks newly created)
-        if self._is_suspicious_domain_name(domain):
-            score -= 15
-        
-        # Check for HTTPS
-        parsed_url = urlparse(url)
-        if parsed_url.scheme == 'https':
-            score += 5
-        
-        # Check domain structure
-        if self._has_suspicious_structure(url):
-            score -= 10
-        
-        # Normalize score
-        score = max(0, min(100, score))
-        
-        return self._create_response(
-            url=url,
-            domain=domain,
-            credibility_score=score,
-            is_trusted=score > 70,
-            status='unknown' if score >= 50 else 'suspicious'
-        )
-    
-    def _is_suspicious_domain_name(self, domain: str) -> bool:
-        """Check if domain name appears suspicious"""
-        suspicious_patterns = [
-            # Misspellings of popular news sites
-            'nyt', 'cnn', 'reuters', 'bbc',
-            # Generic or vague names
-            'news', 'truth', 'update', 'live',
-            # Numbers in domain
-            '24', '365', '247',
-            # Unusual TLDs
-            '.tk', '.ml', '.ga', '.cf'
+        # Suspicious/unreliable sources
+        self.unreliable_sources = [
+            'dailystorm.ru',  # Russian state propaganda
+            'rt.com',  # Russia Today
+            'infowars.com',  # Conspiracy theories
+            'beforeitsne.ws',  # Misinformation blog
+            'naturalnews.com',  # Health misinformation
+            'clickbait-news.com'
         ]
         
-        domain_lower = domain.lower()
+        # Satire/parody sites (content from these should not be taken literally)
+        self.satire_sources = [
+            'theonion.com',
+            'babylonbee.com',
+            'thelapinetruth.com'
+        ]
         
-        for pattern in suspicious_patterns:
-            if pattern in domain_lower and domain not in self.trusted_domains:
-                return True
-        
-        return False
+        # Domain information cache
+        self.domain_cache = {}
     
-    def _has_suspicious_structure(self, url: str) -> bool:
-        """Check for suspicious URL structure"""
-        parsed = urlparse(url)
+    def analyze(self, url: str = None, source: str = None, 
+                author: str = None) -> Dict[str, Any]:
+        """
+        Comprehensive source credibility analysis
         
-        # Check if URL is very short (might be shortened)
-        if len(url) < 30:
-            return True
+        Args:
+            url: News article URL
+            source: Publication name/domain
+            author: Article author name
+            
+        Returns:
+            Credibility analysis results
+        """
+        domain = None
         
-        # Check for suspicious redirects
-        if 'redirect' in parsed.query.lower():
-            return True
+        if url:
+            parsed = urlparse(url)
+            domain = parsed.netloc.replace('www.', '').lower()
+        elif source:
+            domain = source.lower()
         
-        # Check for unusual parameter structures
-        if '?utm_source' in url or '&utm_source' in url:
-            return False  # Legitimate tracking params
-        
-        return False
-    
-    def _create_response(self, url: str, domain: str, credibility_score: float,
-                         is_trusted: bool, status: str, reason: str = None) -> Dict[str, Any]:
-        """Create credibility analysis response"""
-        return {
-            'status': 'success',
-            'url': url,
+        results = {
             'domain': domain,
-            'credibility_score': float(credibility_score),
-            'credibility_level': self._get_credibility_level(credibility_score),
-            'is_trusted': is_trusted,
-            'trust_status': status,
-            'reason': reason or self._get_default_reason(credibility_score),
-            'factors': {
-                'domain_reputation': credibility_score / 100,
-                'https_secure': url.startswith('https:'),
-                'domain_age': 'unknown',
-                'content_quality': 'not_analyzed',
-                'source_bias': 'not_analyzed'
-            },
-            'recommendations': self._get_recommendations(
-                credibility_score, is_trusted, status
-            ),
-            'timestamp': datetime.now().isoformat()
+            'domain_credibility': self._analyze_domain(domain) if domain else None,
+            'author_credibility': self._analyze_author(author) if author else None,
+            'publication_credibility': self._check_publication(domain) if domain else None,
+            'overall_score': 0.0,
+            'trust_level': 'unknown',
+            'recommendations': []
+        }
+        
+        # Calculate overall credibility score
+        scores = []
+        if results['domain_credibility']:
+            scores.append(results['domain_credibility'].get('credibility_score', 0.5))
+        if results['publication_credibility']:
+            scores.append(results['publication_credibility'].get('score', 0.5))
+        if results['author_credibility']:
+            scores.append(results['author_credibility'].get('credibility_score', 0.5))
+        
+        if scores:
+            results['overall_score'] = sum(scores) / len(scores)
+            results['trust_level'] = self._determine_trust_level(results['overall_score'])
+        
+        results['recommendations'] = self._generate_recommendations(results)
+        
+        return results
+    
+    def _analyze_domain(self, domain: str) -> Dict[str, Any]:
+        """
+        Analyze domain credibility
+        
+        Args:
+            domain: Domain name (e.g., 'bbc.com')
+            
+        Returns:
+            Domain credibility analysis
+        """
+        domain = domain.lower().replace('www.', '')
+        
+        # Check if in cache
+        if domain in self.domain_cache:
+            return self.domain_cache[domain]
+        
+        result = {
+            'domain': domain,
+            'is_trusted': False,
+            'trust_tier': 'unknown',
+            'credibility_score': 0.5,
+            'factors': {}
+        }
+        
+        # Check trusted sources
+        if domain in self.trusted_sources['tier1']:
+            result['is_trusted'] = True
+            result['trust_tier'] = 'tier1'
+            result['credibility_score'] = 0.9
+        elif domain in self.trusted_sources['tier2']:
+            result['is_trusted'] = True
+            result['trust_tier'] = 'tier2'
+            result['credibility_score'] = 0.8
+        elif domain in self.unreliable_sources:
+            result['trust_tier'] = 'unreliable'
+            result['credibility_score'] = 0.1
+        elif domain in self.satire_sources:
+            result['trust_tier'] = 'satire'
+            result['credibility_score'] = 0.5
+            result['note'] = 'Satire/parody site - content should not be taken literally'
+        
+        # Check domain characteristics
+        result['factors'] = self._check_domain_characteristics(domain)
+        
+        # Cache result
+        self.domain_cache[domain] = result
+        
+        return result
+    
+    def _check_domain_characteristics(self, domain: str) -> Dict[str, Any]:
+        """
+        Check various domain characteristics
+        
+        Args:
+            domain: Domain to analyze
+            
+        Returns:
+            Domain characteristics
+        """
+        factors = {
+            'has_https': domain.startswith('https://'),
+            'domain_length': len(domain),
+            'is_suspicious_extension': domain.endswith(('.ru', '.cn', '.ir')),
+            'looks_legitimate': not any(char in domain for char in ['_', '..', '--'])
+        }
+        
+        # Adjust credibility based on factors
+        suspicious_score = 0.0
+        
+        if factors['is_suspicious_extension']:
+            suspicious_score += 0.2
+        
+        if not factors['looks_legitimate']:
+            suspicious_score += 0.15
+        
+        # Very short domains can be suspicious
+        if factors['domain_length'] < 4:
+            suspicious_score += 0.1
+        
+        factors['suspicious_indicators'] = suspicious_score > 0
+        factors['suspicious_score'] = min(suspicious_score, 1.0)
+        
+        return factors
+    
+    def _check_publication(self, domain: str) -> Dict[str, Any]:
+        """
+        Check publication credibility
+        
+        Args:
+            domain: Publication domain
+            
+        Returns:
+            Publication credibility info
+        """
+        domain = domain.lower().replace('www.', '')
+        
+        # Extract publication name
+        parts = domain.split('.')
+        pub_name = parts[0].title() if parts else 'Unknown'
+        
+        # This would ideally check against a publication database
+        # For now, using domain analysis as proxy
+        
+        is_established = self._is_established_publication(domain)
+        
+        return {
+            'publication': pub_name,
+            'domain': domain,
+            'is_established': is_established,
+            'score': 0.8 if is_established else 0.5,
+            'recommendation': 'Verify claims with cross-referencing' if not is_established else None
         }
     
-    def _get_credibility_level(self, score: float) -> str:
-        """Convert score to credibility level"""
-        if score >= 85:
-            return 'Highly Credible'
-        elif score >= 70:
-            return 'Credible'
-        elif score >= 50:
-            return 'Moderate'
-        elif score >= 30:
-            return 'Low Credibility'
-        else:
-            return 'Highly Unreliable'
-    
-    def _get_default_reason(self, score: float) -> str:
-        """Get default reason for credibility score"""
-        if score >= 85:
-            return 'Well-established, reputable news organization'
-        elif score >= 70:
-            return 'Generally reliable news source'
-        elif score >= 50:
-            return 'Mixed reputation, requires careful verification'
-        elif score >= 30:
-            return 'Limited credibility, high risk of misinformation'
-        else:
-            return 'Known unreliable source, may publish false information'
-    
-    def _get_recommendations(self, score: float, is_trusted: bool, 
-                            status: str) -> list:
-        """Get recommendations based on credibility"""
-        recommendations = []
+    def _is_established_publication(self, domain: str) -> bool:
+        """
+        Check if publication appears to be established
         
-        if score >= 85:
-            recommendations.append("✅ Can generally be trusted")
-            recommendations.append("📰 Still recommended to cross-check with other sources")
-        elif score >= 70:
-            recommendations.append("⚠️ Relatively credible, verify important claims")
-            recommendations.append("🔍 Cross-reference with other reputable sources")
-        elif score >= 50:
-            recommendations.append("🤔 Approach with caution")
-            recommendations.append("🔗 Verify claims with multiple trusted sources")
-        elif score >= 30:
-            recommendations.append("❌ Low credibility source")
-            recommendations.append("🔎 Fact-check all claims independently")
-            recommendations.append("⚠️ Consider reporting if spreading misinformation")
+        Args:
+            domain: Domain to check
+            
+        Returns:
+            True if appears to be established publication
+        """
+        # Heuristics for established publications
+        known_established = set()
+        for tier in self.trusted_sources.values():
+            known_established.update(tier)
+        
+        if domain in known_established:
+            return True
+        
+        # Check for known major publications
+        major_publications = [
+            'guardian', 'telegraph', 'independent', 'mirror', 'sun',
+            'times', 'financial', 'economist', 'spectator'
+        ]
+        
+        return any(pub in domain for pub in major_publications)
+    
+    def _analyze_author(self, author: str) -> Dict[str, Any]:
+        """
+        Analyze author credibility
+        
+        Args:
+            author: Author name
+            
+        Returns:
+            Author credibility analysis
+        """
+        if not author:
+            return {
+                'author': None,
+                'has_author': False,
+                'credibility_score': 0.5
+            }
+        
+        # Check if author exists
+        if author.lower() in ['anonymous', 'unknown', 'staff', 'editor']:
+            return {
+                'author': author,
+                'has_author': False,
+                'credibility_score': 0.4,
+                'note': 'Article lacks specific author attribution'
+            }
+        
+        # Check if author used real name format
+        name_parts = author.split()
+        has_first_and_last = len(name_parts) >= 2
+        
+        return {
+            'author': author,
+            'has_author': True,
+            'has_proper_name': has_first_and_last,
+            'credibility_score': 0.7 if has_first_and_last else 0.5,
+            'recommendation': 'Verify author credentials if possible'
+        }
+    
+    def _determine_trust_level(self, score: float) -> str:
+        """
+        Determine trust level based on score
+        
+        Args:
+            score: Credibility score (0-1)
+            
+        Returns:
+            Trust level string
+        """
+        if score >= 0.85:
+            return 'highly_trusted'
+        elif score >= 0.7:
+            return 'trusted'
+        elif score >= 0.5:
+            return 'neutral'
+        elif score >= 0.3:
+            return 'questionable'
         else:
-            recommendations.append("🚫 Do not trust this source")
-            recommendations.append("❌ Do not share or spread content from this source")
-            recommendations.append("🚨 Report if actively spreading false information")
+            return 'unreliable'
+    
+    def _generate_recommendations(self, analysis: Dict) -> List[str]:
+        """
+        Generate recommendations based on credibility analysis
+        
+        Args:
+            analysis: Credibility analysis results
+            
+        Returns:
+            List of recommendations
+        """
+        recommendations = []
+        trust_level = analysis.get('trust_level', 'unknown')
+        
+        if trust_level == 'highly_trusted':
+            recommendations.append("✓ Source is generally reliable")
+            recommendations.append("Standard fact-checking recommended")
+        elif trust_level == 'trusted':
+            recommendations.append("✓ Source has good reputation")
+            recommendations.append("Cross-reference important claims")
+        elif trust_level == 'neutral':
+            recommendations.append("⚠ Verify information from multiple sources")
+            recommendations.append("Check author credibility")
+        elif trust_level == 'questionable':
+            recommendations.append("⚠ Be cautious with claims from this source")
+            recommendations.append("Cross-reference with established news outlets")
+            recommendations.append("Check for corroborating evidence")
+        else:  # unreliable
+            recommendations.append("❌ Source has poor reputation")
+            recommendations.append("Verify all claims independently")
+            recommendations.append("Look for corroboration from trusted sources")
+            recommendations.append("Consider reporting if spreading misinformation")
+        
+        # Author-specific recommendations
+        domain_analysis = analysis.get('domain_credibility', {})
+        if domain_analysis and not domain_analysis.get('is_trusted'):
+            author_analysis = analysis.get('author_credibility', {})
+            if author_analysis and not author_analysis.get('has_author'):
+                recommendations.append("Article lacks specific author attribution")
         
         return recommendations
     
-    def get_domain_reputation(self, domain: str) -> Dict[str, Any]:
-        """Get reputation profile for a domain"""
-        if domain in self.trusted_domains:
-            return {
-                'domain': domain,
-                'reputation': 'trusted',
-                'score': self.trusted_domains[domain],
-                'known': True
-            }
-        elif domain in self.known_fake_sources:
-            return {
-                'domain': domain,
-                'reputation': 'untrustworthy',
-                'score': max(0, 50 - self.known_fake_sources[domain]/2),
-                'known': True
-            }
-        else:
-            return {
-                'domain': domain,
-                'reputation': 'unknown',
-                'score': 50,
-                'known': False
-            }
+    def batch_analyze(self, sources: List[str]) -> List[Dict]:
+        """
+        Analyze multiple sources
+        
+        Args:
+            sources: List of source domains/URLs
+            
+        Returns:
+            List of credibility analyses
+        """
+        return [self.analyze(url=source if source.startswith('http') else None, 
+                           source=source if not source.startswith('http') else None) 
+               for source in sources]
+    
+    def compare_sources(self, sources: List[str]) -> Dict[str, Any]:
+        """
+        Compare credibility of multiple sources
+        
+        Args:
+            sources: List of source domains to compare
+            
+        Returns:
+            Comparison results
+        """
+        analyses = self.batch_analyze(sources)
+        
+        # Sort by overall score
+        sorted_sources = sorted(analyses, 
+                               key=lambda x: x.get('overall_score', 0), 
+                               reverse=True)
+        
+        return {
+            'comparison': sorted_sources,
+            'most_credible': sorted_sources[0] if sorted_sources else None,
+            'least_credible': sorted_sources[-1] if sorted_sources else None,
+            'average_score': sum(a.get('overall_score', 0.5) for a in analyses) / len(analyses) if analyses else 0.5
+        }

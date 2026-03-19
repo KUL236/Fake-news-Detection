@@ -1,0 +1,628 @@
+openapi: 3.0.0
+info:
+  title: Fake News Detection System API
+  description: |
+    Advanced AI-powered fake news detection API with multiple ML models,
+    sentiment analysis, propaganda detection, fact-checking integration,
+    and source credibility analysis.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@fakenewsdetector.ai
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:5000
+    description: Local development server
+  - url: https://api.fakenewsdetector.ai
+    description: Production server
+
+paths:
+  /api/health:
+    get:
+      summary: Health check endpoint
+      description: Returns API health status and available modules
+      operationId: getHealth
+      tags:
+        - System
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy, degraded, unhealthy]
+                  timestamp:
+                    type: string
+                    format: date-time
+                  modules:
+                    type: object
+                    properties:
+                      ml_detector:
+                        type: boolean
+                      sentiment_analysis:
+                        type: boolean
+                      propaganda_detection:
+                        type: boolean
+                      source_credibility:
+                        type: boolean
+                      fact_checking:
+                        type: boolean
+
+  /api/analyze:
+    post:
+      summary: Analyze news article for authenticity
+      description: |
+        Perform comprehensive analysis of news content using multiple ML models.
+        Returns classification (FAKE/REAL), confidence score, suspicious phrases,
+        sentiment analysis, propaganda detection, and recommendations.
+      operationId: analyzeNews
+      tags:
+        - Analysis
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+                  minLength: 20
+                  maxLength: 50000
+                  description: Main article content
+                headline:
+                  type: string
+                  maxLength: 500
+                  description: Article headline (optional)
+                url:
+                  type: string
+                  format: uri
+                  description: Source URL (optional)
+                language:
+                  type: string
+                  enum: [en, hi, es, fr, de, zh, ar]
+                  default: en
+                  description: Content language
+      responses:
+        '200':
+          description: Analysis completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisResult'
+        '400':
+          description: Invalid request parameters
+        '429':
+          description: Rate limit exceeded
+        '500':
+          description: Internal server error
+
+  /api/analyze/batch:
+    post:
+      summary: Batch analyze multiple articles
+      description: |
+        Analyze up to 100 articles in a single request.
+        Returns array of analysis results with processing status.
+      operationId: batchAnalyze
+      tags:
+        - Analysis
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - texts
+              properties:
+                texts:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  items:
+                    type: object
+                    required:
+                      - text
+                    properties:
+                      text:
+                        type: string
+                      headline:
+                        type: string
+      responses:
+        '200':
+          description: Batch analysis completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AnalysisResult'
+                  processing_time_ms:
+                    type: integer
+
+  /api/analyze/url:
+    post:
+      summary: Analyze article from URL
+      description: |
+        Fetch article from URL and analyze content.
+        Supports major news websites.
+      operationId: analyzeUrl
+      tags:
+        - Analysis
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - url
+              properties:
+                url:
+                  type: string
+                  format: uri
+      responses:
+        '200':
+          description: URL analysis completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisResult'
+        '400':
+          description: Invalid URL
+        '404':
+          description: URL not accessible
+
+  /api/sentiment:
+    post:
+      summary: Analyze sentiment only
+      description: |
+        Perform sentiment analysis on text.
+        Returns VADER scores, emotions, and bias indicators.
+      operationId: analyzeSentiment
+      tags:
+        - Analysis
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+      responses:
+        '200':
+          description: Sentiment analysis result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SentimentAnalysis'
+
+  /api/propaganda:
+    post:
+      summary: Detect propaganda techniques
+      description: |
+        Identify propaganda techniques in text.
+        Detects 11 different manipulation tactics.
+      operationId: detectPropaganda
+      tags:
+        - Analysis
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+      responses:
+        '200':
+          description: Propaganda detection result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PropagandaAnalysis'
+
+  /api/source-credibility:
+    post:
+      summary: Analyze source credibility
+      description: |
+        Analyze domain and source credibility.
+        Returns trust level and credibility metrics.
+      operationId: analyzeSource
+      tags:
+        - Analysis
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - domain
+              properties:
+                domain:
+                  type: string
+                author:
+                  type: string
+      responses:
+        '200':
+          description: Source credibility result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourceCredibility'
+
+  /api/factcheck:
+    post:
+      summary: Fact-check claims in text
+      description: |
+        Extract and verify facts using Google Fact Check API
+        and NewsAPI integration.
+      operationId: factCheck
+      tags:
+        - Analysis
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+      responses:
+        '200':
+          description: Fact-check results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  claims:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        claim:
+                          type: string
+                        rating:
+                          type: string
+                        source:
+                          type: string
+                        url:
+                          type: string
+
+  /api/analytics/overview:
+    get:
+      summary: Get dashboard overview statistics
+      description: Returns high-level statistics for dashboard
+      operationId: getAnalyticsOverview
+      tags:
+        - Analytics
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [today, week, month, all]
+            default: today
+      responses:
+        '200':
+          description: Analytics overview
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_analyses:
+                    type: integer
+                  fake_count:
+                    type: integer
+                  real_count:
+                    type: integer
+                  avg_confidence:
+                    type: number
+                  accuracy:
+                    type: number
+
+  /api/analytics/trend:
+    get:
+      summary: Get trending fake news topics
+      description: Returns top trending topics
+      operationId: getTrendingTopics
+      tags:
+        - Analytics
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Trending topics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    topic:
+                      type: string
+                    fake_count:
+                      type: integer
+                    real_count:
+                      type: integer
+                    trend_direction:
+                      type: string
+                      enum: [up, down, neutral]
+
+  /api/report/fake-news:
+    post:
+      summary: Report suspected fake news
+      description: Submit user report for fake news verification
+      operationId: reportFakeNews
+      tags:
+        - User Reports
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+                - report_type
+              properties:
+                text:
+                  type: string
+                headline:
+                  type: string
+                url:
+                  type: string
+                  format: uri
+                report_type:
+                  type: string
+                  enum: [fake, misleading, satire, other]
+                reason:
+                  type: string
+                evidence_url:
+                  type: string
+                  format: uri
+      responses:
+        '201':
+          description: Report created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report_id:
+                    type: string
+                  status:
+                    type: string
+
+  /api/models:
+    get:
+      summary: List available models
+      description: Returns information about available ML models
+      operationId: getAvailableModels
+      tags:
+        - System
+      responses:
+        '200':
+          description: Available models
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    type:
+                      type: string
+                    accuracy:
+                      type: number
+                    processing_time_ms:
+                      type: integer
+
+  /api/config:
+    get:
+      summary: Get system configuration
+      description: Returns API configuration and feature flags
+      operationId: getConfig
+      tags:
+        - System
+      responses:
+        '200':
+          description: System configuration
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  api_version:
+                    type: string
+                  models_enabled:
+                    type: array
+                  features:
+                    type: object
+                    properties:
+                      sentiment_analysis:
+                        type: boolean
+                      propaganda_detection:
+                        type: boolean
+                      fact_checking:
+                        type: boolean
+                      source_credibility:
+                        type: boolean
+
+components:
+  schemas:
+    AnalysisResult:
+      type: object
+      properties:
+        classification:
+          type: string
+          enum: [FAKE, REAL]
+        confidence_score:
+          type: number
+          minimum: 0
+          maximum: 1
+        risk_level:
+          type: string
+          enum: [critical, high, medium, low]
+        suspicious_phrases:
+          type: array
+          items:
+            type: object
+            properties:
+              phrase:
+                type: string
+              category:
+                type: string
+              frequency:
+                type: integer
+        sentiment_analysis:
+          $ref: '#/components/schemas/SentimentAnalysis'
+        propaganda_analysis:
+          $ref: '#/components/schemas/PropagandaAnalysis'
+        source_credibility:
+          $ref: '#/components/schemas/SourceCredibility'
+        explanation:
+          type: string
+        recommendations:
+          type: array
+          items:
+            type: string
+        features:
+          type: object
+          properties:
+            word_count:
+              type: integer
+            readability_score:
+              type: number
+            sentiment_ratio:
+              type: number
+        processing_time_ms:
+          type: integer
+
+    SentimentAnalysis:
+      type: object
+      properties:
+        vader_compound:
+          type: number
+          minimum: -1
+          maximum: 1
+        textblob_polarity:
+          type: number
+        emotions:
+          type: object
+          properties:
+            joy:
+              type: number
+            sadness:
+              type: number
+            anger:
+              type: number
+            fear:
+              type: number
+        emotional_intensity:
+          type: number
+        bias_indicators:
+          type: object
+
+    PropagandaAnalysis:
+      type: object
+      properties:
+        propaganda_score:
+          type: number
+          minimum: 0
+          maximum: 1
+        techniques:
+          type: array
+          items:
+            type: string
+        severity:
+          type: string
+          enum: [none, low, medium, high]
+
+    SourceCredibility:
+      type: object
+      properties:
+        domain:
+          type: string
+        trust_level:
+          type: string
+          enum: [highly_trusted, trusted, neutral, questionable, unreliable]
+        credibility_score:
+          type: number
+          minimum: 0
+          maximum: 1
+        https_enabled:
+          type: boolean
+        domain_age_years:
+          type: number
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication
+
+tags:
+  - name: Analysis
+    description: News analysis endpoints
+  - name: Analytics
+    description: Statistics and analytics endpoints
+  - name: User Reports
+    description: User report endpoints
+  - name: System
+    description: System information endpoints
